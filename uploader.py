@@ -9,14 +9,17 @@ global client
 client = None
 
 # I had this damn thing all nice and encapsulated, but pools can't deal with objects womp womp
+
+
 def _upload_file(root, bucket, file):
-        """ Upload a file to S3 where the keyname is the path
-        relative to a root
-        param file file to upload
-        """
-        key = os.path.relpath(file, root)
-        logging.debug("Uploading "+file+" as "+key+" to "+bucket)
-        client.upload_file(file, bucket, key, Config=config)
+    """ Upload a file to S3 where the keyname is the path
+    relative to a root
+    param file file to upload
+    """
+    key = os.path.relpath(file, root)
+    logging.debug("Uploading "+file+" as "+key+" to "+bucket)
+    client.upload_file(file, bucket, key, Config=config)
+
 
 class S3Uploader:
     def __init__(self, profile, root, bucket):
@@ -41,7 +44,8 @@ class S3Uploader:
         global client
         global config
         # let's make the cutoff for multipart files 1G
-        config = TransferConfig(multipart_threshold=(1024**3), multipart_chunksize=(1024**2))
+        config = TransferConfig(multipart_threshold=(
+            1024**3), multipart_chunksize=(100*(1024**2)))
         client = boto3.Session(profile_name=self.profile).client('s3')
         # This could be big-ish, but like assuming 255 character paths,
         # maximum character width (we won't see this), and 1M files
@@ -58,16 +62,17 @@ class S3Uploader:
             results = []
             with Pool(processes=threads) as pool:
                 for file in files:
-                    results.append(pool.apply_async(_upload_file, args=(self.root, self.bucket, file)))
+                    results.append(pool.apply_async(
+                        _upload_file, args=(self.root, self.bucket, file)))
                 pool.close()
                 pool.join()
             for result in results:
-                    try:
-                        result.get()
-                    except botocore.exceptions.ClientError as error:
-                        self.error_count += 1
-                        logging.error('Upload of '+file+' failed.')
-                        logging.exception(error)
+                try:
+                    result.get()
+                except botocore.exceptions.ClientError as error:
+                    self.error_count += 1
+                    logging.error('Upload of '+file+' failed.')
+                    logging.exception(error)
         else:
             for file in files:
                 try:
@@ -80,7 +85,7 @@ class S3Uploader:
 
 def main():
     PROFILE = 's3uploader-test'
-    ROOT = '/home/snehring/projects/singularity'
+    ROOT = '/home/snehring/tmp/upload-test'
     BUCKET = 'rit-upload-test'
 
     log_level = os.getenv('LOGGING')
