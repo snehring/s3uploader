@@ -43,9 +43,9 @@ class S3Uploader:
         """
         global client
         global config
-        # let's make the cutoff for multipart files 1G
+        # let's make the cutoff for multipart files 4G
         config = TransferConfig(multipart_threshold=(
-            1024**3), multipart_chunksize=(100*(1024**2)))
+            4*1024**3), multipart_chunksize=((1024**3)), max_concurrency=8)
         client = boto3.Session(profile_name=self.profile).client('s3')
         # This could be big-ish, but like assuming 255 character paths,
         # maximum character width (we won't see this), and 1M files
@@ -69,7 +69,7 @@ class S3Uploader:
             for result in results:
                 try:
                     result.get()
-                except botocore.exceptions.ClientError as error:
+                except Exception as error:
                     self.error_count += 1
                     logging.error('Upload of '+file+' failed.')
                     logging.exception(error)
@@ -77,7 +77,7 @@ class S3Uploader:
             for file in files:
                 try:
                     _upload_file(client, self.root, self.bucket, file)
-                except botocore.exceptions.ClientError as error:
+                except Exception as error:
                     self.error_count += 1
                     logging.error('Upload of '+file+' failed.')
                     logging.exception(error)
